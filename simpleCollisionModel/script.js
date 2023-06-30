@@ -1,8 +1,8 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-const BALLZ = [];
-const WALLZ = [];
+const Balls = [];
+const Walls = [];
 
 let LEFT, UP, RIGHT, DOWN;
 let friction = 0.05;
@@ -70,7 +70,7 @@ class Ball{
         this.acc = new Vector(0,0);
         this.acceleration = 1;
         this.player = false;
-        BALLZ.push(this);
+        Balls.push(this);
     }
 
     drawBall(){
@@ -103,7 +103,7 @@ class Wall{
     constructor(x1, y1, x2, y2){
         this.start = new Vector(x1, y1);
         this.end = new Vector(x2, y2);
-        WALLZ.push(this);
+        Walls.push(this);
     }
 
     drawWall(){
@@ -257,22 +257,22 @@ function momentum_display(){
 
 function mainLoop(timestamp) {
     ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-    BALLZ.forEach((b, index) => {
+    Balls.forEach((b, index) => {
         b.drawBall();
         if (b.player){
             keyControl(b);
         }
         //each ball object iterates through each wall object
-        WALLZ.forEach((w) => {
-            if(coll_det_bw(BALLZ[index], w)){
-                pen_res_bw(BALLZ[index], w);
-                coll_res_bw(BALLZ[index], w);
+        Walls.forEach((w) => {
+            if(coll_det_bw(Balls[index], w)){
+                pen_res_bw(Balls[index], w);
+                coll_res_bw(Balls[index], w);
             }
         })
-        for(let i = index+1; i<BALLZ.length; i++){
-            if(coll_det_bb(BALLZ[index], BALLZ[i])){
-                pen_res_bb(BALLZ[index], BALLZ[i]);
-                coll_res_bb(BALLZ[index], BALLZ[i]);
+        for(let i = index+1; i<Balls.length; i++){
+            if(coll_det_bb(Balls[index], Balls[i])){
+                pen_res_bb(Balls[index], Balls[i]);
+                coll_res_bb(Balls[index], Balls[i]);
             }
         }
         b.display();
@@ -280,7 +280,7 @@ function mainLoop(timestamp) {
     });
 
     //drawing each wall on the canvas
-    WALLZ.forEach((w) => {
+    Walls.forEach((w) => {
         w.drawWall();
     })
 
@@ -298,17 +298,8 @@ let edge1 = new Wall(0, 0, canvas.clientWidth, 0);
 let edge2 = new Wall(canvas.clientWidth, 0, canvas.clientWidth, canvas.clientHeight);
 let edge3 = new Wall(canvas.clientWidth, canvas.clientHeight, 0, canvas.clientHeight);
 let edge4 = new Wall(0, canvas.clientHeight, 0, 0);
-BALLZ[0].player = true;
+Balls[0].player = true;
 
-//intro if canvas 1138x640
-// let Wall1 = new Wall(1000, 350, 1100, 500);
-// let Wall2 = new Wall(700, 50, 800, 50);
-// let Ball1 = new Ball(-4000, 400, 80, 10);
-// let Ball2 = new Ball(960, 585, 35, 2);
-// let Ball3 = new Ball(1005, 610, 10, 2);
-// let Ball4 = new Ball(1120, 590, 10, 1);
-// let Ball45= new Ball(500, 340, 30, 2);
-// Ball1.vel.x = 290;
 
 
 
