@@ -1,11 +1,5 @@
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
 const BODIES = [];
 const COLLISIONS = [];
-
-let LEFT, UP, RIGHT, DOWN;
-let friction = 0;
 
 class Vector{
     constructor(x, y){
@@ -104,12 +98,18 @@ class Line{
         this.pos = new Vector((this.vertex[0].x+this.vertex[1].x)/2, (this.vertex[0].y+this.vertex[1].y)/2);
     }
 
-    draw(){
+    draw(color){
         ctx.beginPath();
         ctx.moveTo(this.vertex[0].x, this.vertex[0].y);
         ctx.lineTo(this.vertex[1].x, this.vertex[1].y);
-        ctx.strokeStyle = "black";
-        ctx.stroke();
+        if (color === ""){
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = color;
+            ctx.stroke();
+        }
+        ctx.strokeStyle = "";
         ctx.closePath();
     }
 }
@@ -121,12 +121,17 @@ class Circle{
         this.r = r;
     }
 
-    draw(){
+    draw(color){
         ctx.beginPath();
         ctx.arc(this.pos.x, this.pos.y, this.r, 0, 2*Math.PI);
-        ctx.stroke();
-        //ctx.fillStyle = "red";
-        //ctx.fill();
+        if (color === ""){
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        ctx.fillStyle = "";
         ctx.closePath();
     }
 }
@@ -141,26 +146,32 @@ class Rectangle{
         this.length = this.vertex[1].subtr(this.vertex[0]).mag();
         this.width = w;
         this.vertex[2] = this.vertex[1].add(this.dir.normal().mult(this.width));
-        this.vertex[3] = this.vertex[2].add(this.dir.normal().mult(-this.length));
+        this.vertex[3] = this.vertex[2].add(this.dir.mult(-this.length));
         this.pos = this.vertex[0].add(this.dir.mult(this.length/2)).add(this.dir.normal().mult(this.width/2));
         this.angle = 0;
         this.rotMat = new Matrix(2,2);
     }
 
-    draw(){
+    draw(color){
         ctx.beginPath();
         ctx.moveTo(this.vertex[0].x, this.vertex[0].y);
         ctx.lineTo(this.vertex[1].x, this.vertex[1].y);
         ctx.lineTo(this.vertex[2].x, this.vertex[2].y);
         ctx.lineTo(this.vertex[3].x, this.vertex[3].y);
         ctx.lineTo(this.vertex[0].x, this.vertex[0].y);
-        ctx.strokeStyle = "black";
-        ctx.stroke();
+        if (color === ""){
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        ctx.fillStyle = "";
         ctx.closePath();
     }
 
-    getVertices(){
-        this.rotMat.rotMx22(this.angle);
+    getVertices(angle){
+        this.rotMat.rotMx22(angle);
         this.dir = this.rotMat.multiplyVec(this.refDir);
         this.vertex[0] = this.pos.add(this.dir.mult(-this.length/2)).add(this.dir.normal().mult(this.width/2));
         this.vertex[1] = this.pos.add(this.dir.mult(-this.length/2)).add(this.dir.normal().mult(-this.width/2));
@@ -186,19 +197,25 @@ class Triangle{
         this.rotMat = new Matrix(2,2);
     }
 
-    draw(){
+    draw(color){
         ctx.beginPath();
         ctx.moveTo(this.vertex[0].x, this.vertex[0].y);
         ctx.lineTo(this.vertex[1].x, this.vertex[1].y);
         ctx.lineTo(this.vertex[2].x, this.vertex[2].y);
         ctx.lineTo(this.vertex[0].x, this.vertex[0].y);
-        ctx.strokeStyle = "black";
-        ctx.stroke();
+        if (color === ""){
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        ctx.fillStyle = "";
         ctx.closePath();
     }
 
-    getVertices(){
-        this.rotMat.rotMx22(this.angle);
+    getVertices(angle){
+        this.rotMat.rotMx22(angle);
         this.dir = this.rotMat.multiplyVec(this.refDir);
         this.vertex[0] = this.pos.add(this.rotMat.multiplyVec(this.refDiam[0]));
         this.vertex[1] = this.pos.add(this.rotMat.multiplyVec(this.refDiam[1]));
@@ -217,23 +234,54 @@ class Body{
         this.inv_inertia = 0;
         this.elasticity = 1;
 
+        this.friction = 0;
+        this.angFriction = 0;
+        this.maxSpeed = 0;
+        this.color = "";
+        this.layer = 0;
+
+        this.up = false;
+        this.down = false;
+        this.left = false;
+        this.right = false;
+        this.action = false;
+
         this.vel = new Vector(0, 0);
         this.acc = new Vector(0, 0);
-        this.acceleration = 1;
+        this.keyForce = 1;
+        this.angKeyForce = 0.1;
+        this.angle = 0;
         this.angVel = 0;
         this.player = false;
         BODIES.push(this);
     }
 
-    draw(){}
-    display(){}
-    reposition(){}
+    render(){
+        for (let i in this.comp){
+            this.comp[i].draw(this.color);
+        }
+    }
+    reposition(){
+        this.acc = this.acc.unit().mult(this.keyForce);
+        this.vel = this.vel.add(this.acc);
+        this.vel = this.vel.mult(1-this.friction);
+        if (this.vel.mag() > this.maxSpeed && this.maxSpeed !== 0){
+            this.vel = this.vel.unit().mult(this.maxSpeed);
+        }
+        this.angVel *= (1-this.angFriction);
+    }
     keyControl(){}
+    remove(){
+        if (BODIES.indexOf(this) !== -1){
+            BODIES.splice(BODIES.indexOf(this), 1);
+        }
+    }
 }
 
 class Ball extends Body{
     constructor(x, y, r, m){
         super();
+        this.pos = new Vector(x, y);
         this.comp = [new Circle(x, y, r)];
         this.m = m;
         if (this.m === 0){
@@ -243,41 +291,33 @@ class Ball extends Body{
         }
     }
 
-    draw(){
-        this.comp[0].draw();
-    }
-
-    display(){
-        this.vel.drawVec(this.pos.x, this.pos.y, 10, "green");
-        ctx.fillStyle = "black";
-        ctx.fillText("m = "+this.m, this.pos.x-10, this.pos.y-5);
-        ctx.fillText("e = "+this.elasticity, this.pos.x-10, this.pos.y+5);
+    setPosition(x, y, a = this.angle){
+        this.pos.set(x, y);
+        this.comp[0].pos = this.pos;
     }
 
     reposition(){
-        this.acc = this.acc.unit().mult(this.acceleration);
-        this.vel = this.vel.add(this.acc);
-        this.vel = this.vel.mult(1-friction);
-        this.comp[0].pos = this.comp[0].pos.add(this.vel);
+        super.reposition();
+        this.setPosition(this.pos.add(this.vel).x, this.pos.add(this.vel).y);
     }
 
     keyControl(){
-        if(LEFT){
-            this.acc.x = -this.acceleration;
+        if(this.left){
+            this.acc.x = -this.keyForce;
         }
-        if(UP){
-            this.acc.y = -this.acceleration;
+        if(this.up){
+            this.acc.y = -this.keyForce;
         }
-        if(RIGHT){
-            this.acc.x = this.acceleration;
+        if(this.right){
+            this.acc.x = this.keyForce;
         }
-        if(DOWN){
-            this.acc.y = this.acceleration;
+        if(this.down){
+            this.acc.y = this.keyForce;
         }
-        if(!LEFT && !RIGHT){
+        if(!this.left && !this.right){
             this.acc.x = 0;
         }
-        if(!UP && !DOWN){
+        if(!this.up && !this.down){
             this.acc.y = 0;
         }
     }
@@ -290,6 +330,7 @@ class Capsule extends Body{
         let recV1 = this.comp[1].pos.add(this.comp[1].pos.subtr(this.comp[0].pos).unit().normal().mult(r));
         let recV2 = this.comp[0].pos.add(this.comp[1].pos.subtr(this.comp[0].pos).unit().normal().mult(r));
         this.comp.unshift(new Rectangle(recV1.x, recV1.y, recV2.x, recV2.y, 2*r));
+        this.pos = this.comp[0].pos;
         this.m = m;
         if (this.m === 0){
             this.inv_m = 0;
@@ -304,40 +345,37 @@ class Capsule extends Body{
         }
     }
 
-    draw(){
-        this.comp[0].draw();
-        this.comp[1].draw();
-        this.comp[2].draw();
-    }
-
     keyControl(){
-        if(UP){
-            this.acc = this.comp[0].dir.mult(-this.acceleration);
+        if(this.up){
+            this.acc = this.comp[0].dir.mult(-this.keyForce);
         }
-        if(DOWN){
-            this.acc = this.comp[0].dir.mult(this.acceleration);
+        if(this.down){
+            this.acc = this.comp[0].dir.mult(this.keyForce);
         }
-        if(LEFT){
-            this.angVel = -0.1;
+        if(this.left){
+            this.angVel = -this.angKeyForce;
         }
-        if(RIGHT){
-            this.angVel = 0.1;
+        if(this.right){
+            this.angVel = this.angKeyForce;
         }
-        if(!UP && !DOWN){
+        if(!this.up && !this.down){
             this.acc.set(0, 0);
         }
     }
 
-    reposition(){
-        this.acc = this.acc.unit().mult(this.acceleration);
-        this.vel = this.vel.add(this.acc);
-        this.vel = this.vel.mult(1-friction);
-        this.comp[0].pos = this.comp[0].pos.add(this.vel);
-        this.angVel *= 1;
-        this.comp[0].angle += this.angVel;
-        this.comp[0].getVertices();
+    setPosition(x, y, a = this.angle){
+        this.pos.set(x, y);
+        this.angle = a;
+        this.comp[0].pos = this.pos;
+        this.comp[0].getVertices(this.angle + this.angVel);
         this.comp[1].pos = this.comp[0].pos.add(this.comp[0].dir.mult(-this.comp[0].length/2));
         this.comp[2].pos = this.comp[0].pos.add(this.comp[0].dir.mult(this.comp[0].length/2));
+        this.angle += this.angVel;
+    }
+
+    reposition(){
+        super.reposition();
+        this.setPosition(this.pos.add(this.vel).x, this.pos.add(this.vel).y);
     }
 }
 
@@ -345,6 +383,7 @@ class Box extends Body{
     constructor(x1, y1, x2, y2, w, m){
         super();
         this.comp = [new Rectangle(x1, y1, x2, y2, w)];
+        this.pos = this.comp[0].pos;
         this.m = m;
         if (this.m === 0){
             this.inv_m = 0;
@@ -359,36 +398,35 @@ class Box extends Body{
         }
     }
 
-    draw(){
-        this.comp[0].draw();
-    }
-
     keyControl(){
-        if(UP){
-            this.acc = this.comp[0].dir.mult(-this.acceleration);;
+        if(this.up){
+            this.acc = this.comp[0].dir.mult(-this.keyForce);;
         }
-        if(DOWN){
-            this.acc = this.comp[0].dir.mult(this.acceleration);;
+        if(this.down){
+            this.acc = this.comp[0].dir.mult(this.keyForce);;
         }
-        if(LEFT){
-            this.angVel = -0.1;
+        if(this.left){
+            this.angVel = -this.angKeyForce;
         }
-        if(RIGHT){
-            this.angVel = 0.1;
+        if(this.right){
+            this.angVel = this.angKeyForce;
         }
-        if(!UP && !DOWN){
+        if(!this.up && !this.down){
             this.acc.set(0,0);
         }
     }
 
+    setPosition(x, y, a = this.angle){
+        this.pos.set(x, y);
+        this.angle = a;
+        this.comp[0].pos = this.pos;
+        this.comp[0].getVertices(this.angle + this.angVel);
+        this.angle += this.angVel;
+    }
+
     reposition(){
-        this.acc = this.acc.unit().mult(this.acceleration);
-        this.vel = this.vel.add(this.acc);
-        this.vel = this.vel.mult(1-friction);
-        this.comp[0].pos = this.comp[0].pos.add(this.vel);
-        this.angVel *= 1;
-        this.comp[0].angle += this.angVel;
-        this.comp[0].getVertices();
+        super.reposition();
+        this.setPosition(this.pos.add(this.vel).x, this.pos.add(this.vel).y);
     }
 }
 
@@ -407,6 +445,7 @@ class Star extends Body{
         p2 = center.add(upDir.mult(r/2)).add(upDir.normal().mult(-r*Math.sqrt(3)/2));
         p3 = center.add(upDir.mult(r/2)).add(upDir.normal().mult(r*Math.sqrt(3)/2));
         this.comp.push(new Triangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y));
+        this.pos = this.comp[0].pos;
         
         this.m = m;
         if (this.m === 0){
@@ -422,51 +461,45 @@ class Star extends Body{
         }
     }
 
-    draw(){
-        this.comp[0].draw();
-        this.comp[1].draw();
-    }
-
     keyControl(){
-        if(UP){
-            this.acc = this.comp[0].dir.mult(-this.acceleration);
+        if(this.up){
+            this.acc = this.comp[0].dir.mult(-this.keyForce);
         }
-        if(DOWN){
-            this.acc = this.comp[0].dir.mult(this.acceleration);
+        if(this.down){
+            this.acc = this.comp[0].dir.mult(this.keyForce);
         }
-        if(LEFT){
-            this.angVel = -0.1;
+        if(this.left){
+            this.angVel = -this.angKeyForce;
         }
-        if(RIGHT){
-            this.angVel = 0.1;
+        if(this.right){
+            this.angVel = this.angKeyForce;
         }
-        if(!UP && !DOWN){
+        if(!this.up && !this.down){
             this.acc.set(0,0);
         }
     }
 
-    reposition(){
-        this.acc = this.acc.unit().mult(this.acceleration);
-        this.vel = this.vel.add(this.acc);
-        this.vel = this.vel.mult(1-friction);
-        this.angVel *= 1;
-        this.comp[0].pos = this.comp[0].pos.add(this.vel);
-        this.comp[0].angle += this.angVel;
-        this.comp[0].getVertices();
-        this.comp[1].pos = this.comp[0].pos;
-        this.comp[1].angle += this.angVel;
-        this.comp[1].getVertices();
+    setPosition(x, y, a = this.angle){
+        this.pos.set(x, y);
+        this.angle = a;
+        this.comp[0].pos = this.pos;
+        this.comp[1].pos = this.pos;
+        this.comp[0].getVertices(this.angle + this.angVel);
+        this.comp[1].getVertices(this.angle + this.angVel);
+        this.angle += this.angVel;
     }
+
+    reposition(){
+        super.reposition();
+        this.setPosition(this.pos.add(this.vel).x, this.pos.add(this.vel).y);
+   }
 }
 
 class Wall extends Body{
     constructor(x1, y1, x2, y2){
         super();
         this.comp = [new Line(x1, y1, x2, y2)];
-    }
-
-    draw(){
-        this.comp[0].draw();
+        this.pos = new Vector((x1+x2)/2, (y1+y2)/2);
     }
 }
 
@@ -483,8 +516,8 @@ class CollData{
 
     penRes(){
         let penResolution = this.normal.mult(this.pen / (this.o1.inv_m + this.o2.inv_m));
-        this.o1.comp[0].pos = this.o1.comp[0].pos.add(penResolution.mult(this.o1.inv_m));
-        this.o2.comp[0].pos = this.o2.comp[0].pos.add(penResolution.mult(-this.o2.inv_m));
+        this.o1.pos = this.o1.pos.add(penResolution.mult(this.o1.inv_m));
+        this.o2.pos = this.o2.pos.add(penResolution.mult(-this.o2.inv_m));
     }
 
     collRes(){
@@ -517,39 +550,6 @@ class CollData{
         this.o1.angVel += this.o1.inv_inertia * Vector.cross(collArm1, impulseVec);
         this.o2.angVel -= this.o2.inv_inertia * Vector.cross(collArm2, impulseVec); 
     }
-}
-
-//Event listeners for the arrow keys
-function userInput(){
-    canvas.addEventListener('keydown', function(e){
-        if(e.keyCode === 37){
-            LEFT = true;
-        }
-        if(e.keyCode === 38){
-            UP = true;
-        }
-        if(e.keyCode === 39){
-            RIGHT = true;
-        }
-        if(e.keyCode === 40){
-            DOWN = true;
-        }
-    });
-    
-    canvas.addEventListener('keyup', function(e){
-        if(e.keyCode === 37){
-            LEFT = false;
-        }
-        if(e.keyCode === 38){
-            UP = false;
-        }
-        if(e.keyCode === 39){
-            RIGHT = false;
-        }
-        if(e.keyCode === 40){
-            DOWN = false;
-        }
-    });    
 }
 
 function round(number, precision){
@@ -675,7 +675,11 @@ function projShapeOntoAxis(axis, obj){
 function findAxes(o1, o2){
     let axes = [];
     if(o1 instanceof Circle && o2 instanceof Circle){
-        axes.push(o2.pos.subtr(o1.pos).unit());
+        if(o2.pos.subtr(o1.pos).mag() > 0){
+            axes.push(o2.pos.subtr(o1.pos).unit());
+        } else {
+            axes.push(new Vector(Math.random(), Math.random()).unit());
+        }        
         return axes;
     }
     if(o1 instanceof Circle){
@@ -747,46 +751,55 @@ function setBallVerticesAlongAxis(obj, axis){
 //Thats it for the SAT and its support functions
 
 //Prevents objects to float away from the canvas
-function putWallsAroundCanvas(){
-    let edge1 = new Wall(0, 0, canvas.clientWidth, 0);
-    let edge2 = new Wall(canvas.clientWidth, 0, canvas.clientWidth, canvas.clientHeight);
-    let edge3 = new Wall(canvas.clientWidth, canvas.clientHeight, 0, canvas.clientHeight);
-    let edge4 = new Wall(0, canvas.clientHeight, 0, 0);
+function putWallsAround(x1, y1, x2, y2){
+    let edge1 = new Wall(x1, y1, x2, y1);
+    let edge2 = new Wall(x2, y1, x2, y2);
+    let edge3 = new Wall(x2, y2, x1, y2);
+    let edge4 = new Wall(x1, y2, x1, y1);
 }
 
-//Game loop (60 frames per second)
-function mainLoop(timestamp) {
-    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-    userInput();
+function collide(o1, o2){
+    let bestSat = {
+        pen: null,
+        axis: null,
+        vertex: null
+    }
+    for(let o1comp=0; o1comp<o1.comp.length; o1comp++){
+        for(let o2comp=0; o2comp<o2.comp.length; o2comp++){
+            if(sat(o1.comp[o1comp], o2.comp[o2comp]).pen > bestSat.pen){
+                bestSat = sat(o1.comp[o1comp], o2.comp[o2comp]);
+            }
+        }
+    }
+    if (bestSat.pen !== null){
+        return bestSat;
+    } else {
+        return false;
+    }
+}
+
+function userInteraction(){
+    BODIES.forEach((b) => {
+        b.keyControl();
+    })
+}
+
+function gameLogic(){}
+
+function physicsLoop(timestamp) {
     COLLISIONS.length = 0;
     
     BODIES.forEach((b) => {
-        b.draw();
-        b.display();
-        if(b.player){
-            b.keyControl();
-        };
         b.reposition();
     })
     
     BODIES.forEach((b, index) => {
         for(let bodyPair = index+1; bodyPair < BODIES.length; bodyPair++){
-            let bestSat = {
-                pen: null,
-                axis: null,
-                vertex: null
-            }
-            for(let o1comp=0; o1comp<BODIES[index].comp.length; o1comp++){
-                for(let o2comp=0; o2comp<BODIES[bodyPair].comp.length; o2comp++){
-                    if(sat(BODIES[index].comp[o1comp], BODIES[bodyPair].comp[o2comp]).pen > bestSat.pen){
-                        bestSat = sat(BODIES[index].comp[o1comp], BODIES[bodyPair].comp[o2comp]);
-                        ctx.fillText("COLLISION", 500, 400);
-                    }
-                }
-            }
-
-            if(bestSat.pen !== null){
-                COLLISIONS.push(new CollData(BODIES[index], BODIES[bodyPair], bestSat.axis, bestSat.pen, bestSat.vertex));
+           if((BODIES[index].layer === BODIES[bodyPair].layer ||
+               BODIES[index].layer === 0 || BODIES[bodyPair].layer === 0) && 
+               collide(BODIES[index], BODIES[bodyPair])){
+                    let bestSat = collide(BODIES[index], BODIES[bodyPair]);
+                    COLLISIONS.push(new CollData(BODIES[index], BODIES[bodyPair], bestSat.axis, bestSat.pen, bestSat.vertex));
            }
         }
     });
@@ -795,36 +808,24 @@ function mainLoop(timestamp) {
         c.penRes();
         c.collRes();
     });
+}
 
+function renderLoop(){
+    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    BODIES.forEach((b) => {
+        b.render();
+    })
+}
+
+function mainLoop(){
+    userInteraction();
+    gameLogic();
+    physicsLoop();
+    renderLoop();
     requestAnimationFrame(mainLoop);
 }
 
-//Setting up the initial environment before starting the main loop
-putWallsAroundCanvas();
-
-//Creating 10 body object with random arguments
-for(let addBody = 0; addBody < 10; addBody++){
-    let x0 = randInt(100, canvas.clientWidth-100);
-    let y0 = randInt(100, canvas.clientHeight-100);
-    let x1 = x0 + randInt(-50, 50);
-    let y1 = y0 + randInt(-50, 50);
-    let r = randInt(10, 30);
-    let m = randInt(0, 10);
-    if(addBody%4 === 0){
-        let ballObj = new Ball(x0, y0, r, m);
-    }
-    if(addBody%4 === 1){
-        let boxObj = new Box(x0, y0, x1, y1, r, m);
-    }
-    if(addBody%4 === 2){
-        let capsObj = new Capsule(x0, y0, x1, y1, r, m);
-    }
-    if(addBody%4 === 3){
-        let starObj = new Star(x0, y0, r+20, m);
-    }
-};
-
-let playerBall = new Ball(320, 240, 10, 5);
-playerBall.player = true;
-
-requestAnimationFrame(mainLoop);
+function renderOnly(){
+    renderLoop();
+    requestAnimationFrame(renderOnly);
+}
