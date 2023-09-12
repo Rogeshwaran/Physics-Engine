@@ -98,7 +98,6 @@ class Ball{
     }
 }
 
-//Walls are line segments between two points
 class Wall{
     constructor(x1, y1, x2, y2){
         this.start = new Vector(x1, y1);
